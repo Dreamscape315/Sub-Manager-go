@@ -1,0 +1,195 @@
+{{define "page:dashboard"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+{{template "head" .}}
+<body class="min-h-screen bg-base-200 text-base-content">
+{{template "flash-meta" .}}
+{{template "nav" .}}
+
+<main class="container mx-auto max-w-7xl px-4 py-6 space-y-6">
+
+    <div class="flex flex-wrap items-start justify-between gap-4">
+        <div><h1 class="text-2xl font-bold tracking-tight">概览</h1></div>
+        <form action="/admin/refresh" method="post" class="m-0" data-loading>
+            <button type="submit" class="btn btn-primary btn-sm gap-2">
+                <i class="ti ti-refresh text-base"></i> 立即全部刷新
+            </button>
+        </form>
+    </div>
+
+    <section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <!-- 机场 -->
+        <div class="stats shadow bg-base-100">
+            <div class="stat">
+                <div class="stat-figure text-primary"><i class="ti ti-plane-departure text-3xl"></i></div>
+                <div class="stat-title">机场</div>
+                <div class="stat-value text-primary">
+                    {{.EnabledAirports}}
+                    <span class="text-base font-normal text-base-content/50">/ {{.TotalAirports}}</span>
+                </div>
+                {{if gt .TotalAirports 0}}
+                <div class="stat-desc">
+                    {{if eq .OKAirports .EnabledAirports}}
+                        <span class="text-success flex items-center gap-1"><i class="ti ti-circle-check"></i> 全部拉取成功</span>
+                    {{else}}
+                        <span class="text-warning flex items-center gap-1"><i class="ti ti-alert-triangle"></i>
+                            {{sub .EnabledAirports .OKAirports}} 个失败</span>
+                    {{end}}
+                </div>
+                {{else}}
+                <div class="stat-desc">还没有机场</div>
+                {{end}}
+            </div>
+        </div>
+
+        <!-- Profile -->
+        <div class="stats shadow bg-base-100">
+            <div class="stat">
+                <div class="stat-figure text-secondary"><i class="ti ti-target-arrow text-3xl"></i></div>
+                <div class="stat-title">Profile</div>
+                <div class="stat-value text-secondary">
+                    {{.EnabledProfiles}}
+                    <span class="text-base font-normal text-base-content/50">/ {{.TotalProfiles}}</span>
+                </div>
+                {{if gt .TotalProfiles 0}}
+                <div class="stat-desc">
+                    {{if eq .OKProfiles .EnabledProfiles}}
+                        <span class="text-success flex items-center gap-1"><i class="ti ti-circle-check"></i> 全部已合成</span>
+                    {{else}}
+                        <span class="text-warning flex items-center gap-1"><i class="ti ti-alert-triangle"></i>
+                            {{sub .EnabledProfiles .OKProfiles}} 个未合成</span>
+                    {{end}}
+                </div>
+                {{else}}
+                <div class="stat-desc">还没有 Profile</div>
+                {{end}}
+            </div>
+        </div>
+
+        <!-- 总节点 -->
+        <div class="stats shadow bg-base-100">
+            <div class="stat">
+                <div class="stat-figure text-accent"><i class="ti ti-server-2 text-3xl"></i></div>
+                <div class="stat-title">总节点</div>
+                <div class="stat-value">{{.TotalNodes}}</div>
+                <div class="stat-desc">
+                    启用 Profile 节点数之和
+                    <span class="tooltip tooltip-left ml-1" data-tip="仅 Clash target 精确；其他格式显示为 0">
+                        <i class="ti ti-info-circle text-xs opacity-60"></i>
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 上次刷新 -->
+        <div class="stats shadow bg-base-100">
+            <div class="stat">
+                <div class="stat-figure text-info"><i class="ti ti-clock text-3xl"></i></div>
+                <div class="stat-title">上次刷新</div>
+                <div class="stat-value text-lg">
+                    {{if isZeroTime .LastRefresh}}<span class="text-base-content/40">—</span>
+                    {{else}}{{template "localDatetime" dict "TS" .LastRefresh "Fallback" "—"}}{{end}}
+                </div>
+                <div class="stat-desc">
+                    {{if isZeroTime .LastRefresh}}<span>还没运行过</span>
+                    {{else}}
+                    <span data-ts="{{tsAttr .LastRefresh}}" x-data="{ ago: '' }" x-init="
+                        const ts = $el.dataset.ts;
+                        const upd = () => {
+                          const secs = Math.floor((Date.now() - new Date(ts).getTime())/1000);
+                          if (secs < 60) ago = secs + ' 秒前';
+                          else if (secs < 3600) ago = Math.floor(secs/60) + ' 分钟前';
+                          else if (secs < 86400) ago = Math.floor(secs/3600) + ' 小时前';
+                          else ago = Math.floor(secs/86400) + ' 天前';
+                        };
+                        upd(); setInterval(upd, 30000);
+                      " x-text="ago"></span>
+                    {{end}}
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="grid gap-4 lg:grid-cols-2">
+        <!-- 机场健康 -->
+        <div class="card bg-base-100 shadow">
+            <div class="card-body p-5">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="card-title text-base gap-2"><i class="ti ti-plane-departure text-primary"></i> 机场健康</h2>
+                    <a href="/admin/airports" class="btn btn-ghost btn-xs gap-1">管理 <i class="ti ti-arrow-right"></i></a>
+                </div>
+                {{if not .Airports}}
+                <div class="py-8 text-center text-base-content/60">
+                    <i class="ti ti-plane-off text-4xl opacity-50"></i>
+                    <p class="mt-2 text-sm">还没有机场，<a href="/admin/airports" class="link link-primary">去添加一个</a></p>
+                </div>
+                {{else}}
+                <ul class="divide-y divide-base-200">
+                    {{range .Airports}}
+                    <li class="py-2.5 flex items-center gap-3">
+                        <div class="shrink-0">{{template "airportDot" .}}</div>
+                        <div class="grow min-w-0">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="font-medium truncate">{{.Name}}</span>
+                                {{if not .Enabled}}<span class="badge badge-ghost badge-sm">停用</span>{{end}}
+                            </div>
+                            <div class="text-xs text-base-content/60 mt-0.5">
+                                {{if .CachedRawContent}}{{bytesLabel (len .CachedRawContent) "缓存"}}{{else}}无缓存{{end}}
+                                {{if .CachedUserinfo}} · 有流量数据{{end}}
+                            </div>
+                        </div>
+                        <div class="text-xs text-base-content/50 shrink-0 whitespace-nowrap">
+                            {{if isZeroTime .LastFetchedAt}}未拉取
+                            {{else}}<span data-ts="{{tsAttr .LastFetchedAt}}" x-data x-init="$el.textContent = new Date($el.dataset.ts).toLocaleTimeString()">…</span>
+                            {{end}}
+                        </div>
+                    </li>
+                    {{end}}
+                </ul>
+                {{end}}
+            </div>
+        </div>
+
+        <!-- Profile 快照 -->
+        <div class="card bg-base-100 shadow">
+            <div class="card-body p-5">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="card-title text-base gap-2"><i class="ti ti-target-arrow text-secondary"></i> Profile 快照</h2>
+                    <a href="/admin/profiles" class="btn btn-ghost btn-xs gap-1">管理 <i class="ti ti-arrow-right"></i></a>
+                </div>
+                {{if not .Profiles}}
+                <div class="py-8 text-center text-base-content/60">
+                    <i class="ti ti-target-off text-4xl opacity-50"></i>
+                    <p class="mt-2 text-sm">还没有 Profile，<a href="/admin/profiles" class="link link-primary">去添加一个</a></p>
+                </div>
+                {{else}}
+                <ul class="divide-y divide-base-200">
+                    {{range $p := .Profiles}}
+                    <li class="py-2.5 flex items-center gap-3">
+                        <div class="shrink-0">{{template "profileDot" $p}}</div>
+                        <div class="grow min-w-0">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="font-medium truncate">{{$p.Slug}}</span>
+                                <span class="badge badge-primary badge-sm">{{$p.TargetFormat}}</span>
+                                {{$n := mapGetInt $.ProfileNodeCount $p.ID}}
+                                <span class="text-xs text-base-content/60">{{if gt $n 0}}{{$n}} 节点{{else}}—{{end}}</span>
+                            </div>
+                            <div class="text-xs text-base-content/50 mt-0.5 font-mono truncate">/profile/{{$p.Slug}}</div>
+                        </div>
+                        <button type="button" class="btn btn-ghost btn-xs btn-square shrink-0"
+                                data-copy-profile-slug="{{$p.Slug}}" title="复制订阅 URL">
+                            <i class="ti ti-copy"></i>
+                        </button>
+                    </li>
+                    {{end}}
+                </ul>
+                {{end}}
+            </div>
+        </div>
+    </section>
+</main>
+
+{{template "flash" .}}
+</body>
+</html>
+{{end}}

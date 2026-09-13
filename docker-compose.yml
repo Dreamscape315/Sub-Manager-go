@@ -1,0 +1,43 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: sub-manager-go-app:local
+    container_name: sub-manager-go-app
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${APP_PORT:-8080}:8080"
+    volumes:
+      - submanager-go-data:/app/data
+    environment:
+      SUBMANAGER_DEMO_ENABLED: "false"
+      TZ: "UTC"
+    depends_on:
+      subconverter:
+        condition: service_healthy
+    networks:
+      - submanager-net
+
+  subconverter:
+    build:
+      context: ./subconverter
+      dockerfile: Dockerfile
+    image: sub-manager-go-subconverter:local
+    container_name: sub-manager-go-subconverter
+    restart: unless-stopped
+    networks:
+      - submanager-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:25500/version >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+networks:
+  submanager-net:
+    driver: bridge
+
+volumes:
+  submanager-go-data:

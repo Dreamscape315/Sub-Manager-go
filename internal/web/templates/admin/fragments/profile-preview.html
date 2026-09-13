@@ -1,0 +1,29 @@
+{{define "fragment:profile-preview"}}
+{{if not .Profile}}
+    <div class="text-base-content/60">Profile 不存在。</div>
+{{else if not .NodeNames}}
+    <div class="text-center py-8 text-base-content/60">
+        <i class="ti ti-mood-empty text-4xl opacity-50"></i>
+        <p class="mt-2 text-sm">这个 Profile 还没有合成过或缓存里没有节点。</p>
+        <p class="text-xs text-base-content/50 mt-1">
+            （节点解析仅支持 Clash target；singbox / v2ray 等其他格式看不到列表）
+        </p>
+    </div>
+{{else}}
+    <div>
+        <p class="text-sm text-base-content/60 mb-3">
+            共 <strong class="text-base-content">{{len .NodeNames}}</strong> 个节点
+            （如超过 100 个只显示前 100 个）：
+        </p>
+        <ul class="grid gap-1.5 max-h-[60vh] overflow-auto pr-1"
+            style="grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));">
+            {{range $i, $n := .NodeNames}}
+            <li class="flex items-baseline gap-2 px-2 py-1 rounded bg-base-200/60 text-xs font-mono">
+                <span class="text-base-content/40 tabular-nums">{{add $i 1}}.</span>
+                <span class="grow truncate" title="{{$n}}">{{$n}}</span>
+            </li>
+            {{end}}
+        </ul>
+    </div>
+{{end}}
+{{end}}

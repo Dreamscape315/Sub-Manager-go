@@ -1,0 +1,148 @@
+{{define "page:settings"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+{{template "head" .}}
+<body class="min-h-screen bg-base-200 text-base-content">
+{{template "flash-meta" .}}
+{{template "nav" .}}
+
+<main class="container mx-auto max-w-4xl px-4 py-6 space-y-6">
+    <div>
+        <h1 class="text-2xl font-bold tracking-tight">系统设置</h1>
+        <p class="text-sm text-base-content/60 mt-1">这些参数运行时可改，保存后立刻生效，无需重启。</p>
+    </div>
+
+    <form method="post" action="/admin/settings" class="space-y-4" data-loading>
+
+        <!-- 分组 1：调度与超时 -->
+        <div class="card bg-base-100 shadow">
+            <div class="card-body p-5">
+                <h2 class="card-title text-base gap-2 pb-2 border-b border-base-200 mb-3">
+                    <i class="ti ti-clock-hour-4 text-primary"></i> 调度与超时
+                </h2>
+                <div class="grid gap-4 md:grid-cols-3">
+                    <label class="form-control w-full">
+                        <div class="label"><span class="label-text font-medium">刷新周期（秒）</span></div>
+                        <input type="number" min="30" max="86400" name="refreshIntervalSeconds" value="{{.Form.RefreshIntervalSeconds}}"
+                               class="input input-bordered w-full{{if index .Errors "refreshIntervalSeconds"}} input-error{{end}}">
+                        {{if index .Errors "refreshIntervalSeconds"}}
+                            <div class="label"><span class="label-text-alt text-error">{{index .Errors "refreshIntervalSeconds"}}</span></div>
+                        {{else}}
+                            <div class="label"><span class="label-text-alt text-base-content/50">30 - 86400</span></div>
+                        {{end}}
+                    </label>
+
+                    <label class="form-control w-full">
+                        <div class="label"><span class="label-text font-medium">subconverter 超时</span></div>
+                        <input type="number" min="1" max="600" name="subconverterTimeoutSeconds" value="{{.Form.SubconverterTimeoutSeconds}}"
+                               class="input input-bordered w-full{{if index .Errors "subconverterTimeoutSeconds"}} input-error{{end}}">
+                        {{if index .Errors "subconverterTimeoutSeconds"}}
+                            <div class="label"><span class="label-text-alt text-error">{{index .Errors "subconverterTimeoutSeconds"}}</span></div>
+                        {{else}}
+                            <div class="label"><span class="label-text-alt text-base-content/50">秒</span></div>
+                        {{end}}
+                    </label>
+
+                    <label class="form-control w-full">
+                        <div class="label"><span class="label-text font-medium">机场拉取超时</span></div>
+                        <input type="number" min="1" max="600" name="airportFetchTimeoutSeconds" value="{{.Form.AirportFetchTimeoutSeconds}}"
+                               class="input input-bordered w-full{{if index .Errors "airportFetchTimeoutSeconds"}} input-error{{end}}">
+                        {{if index .Errors "airportFetchTimeoutSeconds"}}
+                            <div class="label"><span class="label-text-alt text-error">{{index .Errors "airportFetchTimeoutSeconds"}}</span></div>
+                        {{else}}
+                            <div class="label"><span class="label-text-alt text-base-content/50">秒</span></div>
+                        {{end}}
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- 分组 2：服务连通 -->
+        <div class="card bg-base-100 shadow">
+            <div class="card-body p-5">
+                <div class="flex items-center justify-between pb-2 border-b border-base-200 mb-3">
+                    <h2 class="card-title text-base gap-2"><i class="ti ti-plug-connected text-primary"></i> 服务连通</h2>
+                    <button type="button" class="btn btn-outline btn-sm gap-2"
+                            hx-post="/admin/settings/test-connectivity" hx-target="#conn-result" hx-swap="innerHTML">
+                        <i class="ti ti-heartbeat"></i>
+                        <span>测试连通性</span>
+                        <span class="loading loading-spinner loading-xs htmx-indicator"></span>
+                    </button>
+                </div>
+
+                <div class="space-y-4">
+                    <label class="form-control w-full">
+                        <div class="label"><span class="label-text font-medium">Subconverter Base URL</span></div>
+                        <input type="text" name="subconverterBaseUrl" value="{{.Form.SubconverterBaseURL}}"
+                               class="input input-bordered w-full font-mono text-sm{{if index .Errors "subconverterBaseUrl"}} input-error{{end}}">
+                        {{if index .Errors "subconverterBaseUrl"}}
+                            <div class="label"><span class="label-text-alt text-error">{{index .Errors "subconverterBaseUrl"}}</span></div>
+                        {{else}}
+                            <div class="label"><span class="label-text-alt text-base-content/50">docker-compose 内默认 <code class="font-mono">http://subconverter:25500</code></span></div>
+                        {{end}}
+                    </label>
+
+                    <label class="form-control w-full">
+                        <div class="label"><span class="label-text font-medium">Internal Base URL</span></div>
+                        <input type="text" name="internalBaseUrl" value="{{.Form.InternalBaseURL}}"
+                               class="input input-bordered w-full font-mono text-sm{{if index .Errors "internalBaseUrl"}} input-error{{end}}">
+                        {{if index .Errors "internalBaseUrl"}}
+                            <div class="label"><span class="label-text-alt text-error">{{index .Errors "internalBaseUrl"}}</span></div>
+                        {{else}}
+                            <div class="label"><span class="label-text-alt text-base-content/50">subconverter 回调本平台 <code class="font-mono">/internal/airports/{id}/raw</code> 的前缀</span></div>
+                        {{end}}
+                    </label>
+
+                    <label class="form-control w-full">
+                        <div class="label">
+                            <span class="label-text font-medium">Internal Secret</span>
+                            <span class="label-text-alt text-base-content/50">可空</span>
+                        </div>
+                        <input type="text" name="internalSecret" value="{{.Form.InternalSecret}}"
+                               class="input input-bordered w-full font-mono text-sm{{if index .Errors "internalSecret"}} input-error{{end}}"
+                               placeholder="留空 = 不校验，靠 tunnel 路由保护即可">
+                        {{if index .Errors "internalSecret"}}
+                            <div class="label"><span class="label-text-alt text-error">{{index .Errors "internalSecret"}}</span></div>
+                        {{else}}
+                            <div class="label"><span class="label-text-alt text-base-content/50"><code class="font-mono">/internal/airports/*/raw</code> 的访问 token（32+ 位随机推荐）</span></div>
+                        {{end}}
+                    </label>
+
+                    <div id="conn-result" class="space-y-2"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 分组 3：对外发布 -->
+        <div class="card bg-base-100 shadow">
+            <div class="card-body p-5">
+                <h2 class="card-title text-base gap-2 pb-2 border-b border-base-200 mb-3">
+                    <i class="ti ti-world text-primary"></i> 对外发布
+                </h2>
+                <label class="form-control w-full">
+                    <div class="label">
+                        <span class="label-text font-medium">Public Base URL</span>
+                        <span class="label-text-alt text-base-content/50">可空</span>
+                    </div>
+                    <input type="text" name="publicBaseUrl" value="{{.Form.PublicBaseURL}}"
+                           class="input input-bordered w-full font-mono text-sm{{if index .Errors "publicBaseUrl"}} input-error{{end}}"
+                           placeholder="https://sub.example.com">
+                    {{if index .Errors "publicBaseUrl"}}
+                        <div class="label"><span class="label-text-alt text-error">{{index .Errors "publicBaseUrl"}}</span></div>
+                    {{else}}
+                        <div class="label"><span class="label-text-alt text-base-content/50">"复制订阅 URL"按钮拼接的域名前缀。留空 = 用当前访问管理页的域名。</span></div>
+                    {{end}}
+                </label>
+            </div>
+        </div>
+
+        <div class="flex justify-end">
+            <button type="submit" class="btn btn-primary gap-2"><i class="ti ti-device-floppy"></i> 保存</button>
+        </div>
+    </form>
+</main>
+
+{{template "flash" .}}
+</body>
+</html>
+{{end}}

@@ -1,0 +1,231 @@
+{{define "head"}}
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#1d232a" media="(prefers-color-scheme: dark)">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta name="app-public-base-url" content="{{.PublicBaseURL}}">
+    <title>{{.Title}} — Sub-Manager</title>
+
+    <!-- DaisyUI 完整组件 + 主题 CSS（预编译 bundle） -->
+    <link rel="stylesheet" href="/css/daisyui.css">
+    <!-- 项目 Tailwind utility CSS（Standalone CLI 编译产物，随模板一起 embed 进二进制） -->
+    <link rel="stylesheet" href="/css/tailwind.css">
+    <!-- Tabler icons webfont -->
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.24.0/dist/tabler-icons.min.css">
+
+    <style>
+        /* 修复 daisyUI modal 打开时页面向右跳动的问题：始终保留滚动条槽位。 */
+        html { scrollbar-gutter: stable; }
+
+        /* htmx 顶部进度条 */
+        #htmx-progress {
+            position: fixed; top: 0; left: 0; height: 2px; width: 0;
+            background: hsl(var(--p)); z-index: 200; opacity: 0;
+            transition: width 0.3s ease, opacity 0.2s ease;
+        }
+        #htmx-progress.active { width: 70%; opacity: 1; }
+    </style>
+
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+
+    <script>
+        /* 早期设置主题，避免闪烁。优先跟随系统深浅色偏好，用户手动选后 localStorage 覆盖。 */
+        (function () {
+            var validThemes = ['cupcake','emerald','retro','dim','dracula','forest','black'];
+            var saved = localStorage.getItem('theme');
+            if (saved && validThemes.indexOf(saved) === -1) { saved = null; }
+            if (!saved) {
+                var prefersDark = window.matchMedia
+                    && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                saved = prefersDark ? 'dim' : 'emerald';
+            }
+            document.documentElement.setAttribute('data-theme', saved);
+        })();
+
+        window.APP_THEMES = {
+            light: [
+                { name: 'cupcake',   label: '柔粉' },
+                { name: 'emerald',   label: '绿意' },
+                { name: 'retro',     label: '复古米黄' }
+            ],
+            dark: [
+                { name: 'dim',        label: '中性深灰' },
+                { name: 'dracula',    label: 'Dracula' },
+                { name: 'forest',     label: '深林绿' },
+                { name: 'black',      label: '纯黑' }
+            ]
+        };
+
+        document.addEventListener('alpine:init', function () {
+            Alpine.store('theme', {
+                current: document.documentElement.getAttribute('data-theme') || 'emerald',
+                set(name) {
+                    this.current = name;
+                    localStorage.setItem('theme', name);
+                    document.documentElement.setAttribute('data-theme', name);
+                }
+            });
+            Alpine.store('toasts', {
+                items: [],
+                _seq: 0,
+                push(text, kind) {
+                    const id = ++this._seq;
+                    this.items.push({ id: id, text: text, kind: kind || 'info' });
+                    const ttl = kind === 'err' ? 6000 : 3500;
+                    setTimeout(() => {
+                        this.items = this.items.filter(x => x.id !== id);
+                    }, ttl);
+                }
+            });
+        });
+    </script>
+
+    <script>
+        /* 全局 confirm 对话框（纯 vanilla JS，不依赖 Alpine 时序） */
+        window.showConfirm = function (message, opts, onOk) {
+            opts = opts || {};
+            const modal = document.getElementById('sm-confirm-modal');
+            if (!modal) {
+                if (window.confirm(message)) { if (typeof onOk === 'function') onOk(); }
+                return;
+            }
+            const $ = (sel) => modal.querySelector(sel);
+            $('[data-role=message]').textContent = message;
+            $('[data-role=confirm-text]').textContent = opts.confirmText || '确认';
+            $('[data-role=cancel-text]').textContent = opts.cancelText || '取消';
+            $('[data-role=title]').textContent = opts.title || '请确认';
+
+            const iconEl = $('[data-role=icon]');
+            const okBtn = $('[data-role=confirm-btn]');
+            if (opts.kind === 'danger') {
+                iconEl.className = 'ti text-xl ti-alert-triangle text-error';
+                okBtn.className = 'btn btn-error';
+            } else {
+                iconEl.className = 'ti text-xl ti-help-circle';
+                okBtn.className = 'btn btn-primary';
+            }
+
+            let escHandler = null;
+            function close() {
+                modal.classList.remove('modal-open');
+                okBtn.onclick = null;
+                $('[data-role=cancel-btn]').onclick = null;
+                $('[data-role=backdrop]').onclick = null;
+                if (escHandler) {
+                    document.removeEventListener('keydown', escHandler);
+                    escHandler = null;
+                }
+            }
+            okBtn.onclick = function () {
+                close();
+                if (typeof onOk === 'function') onOk();
+            };
+            $('[data-role=cancel-btn]').onclick = close;
+            $('[data-role=backdrop]').onclick = close;
+            escHandler = function (e) { if (e.key === 'Escape') close(); };
+            document.addEventListener('keydown', escHandler);
+
+            modal.classList.add('modal-open');
+        };
+
+        document.addEventListener('click', function (ev) {
+            const btn = ev.target.closest('.confirm-action');
+            if (!btn) return;
+            ev.preventDefault();
+            const formId = btn.getAttribute('form');
+            const message = btn.dataset.message || '要执行此操作吗？';
+            const kind = btn.dataset.kind || 'primary';
+            const confirmText = btn.dataset.confirmText || (kind === 'danger' ? '删除' : '确认');
+            window.showConfirm(message, { kind: kind, confirmText: confirmText }, function () {
+                if (formId) {
+                    const f = document.getElementById(formId);
+                    if (f) f.submit();
+                }
+            });
+        }, true);
+    </script>
+
+    <script>
+        /* 全局 loading 系统：htmx 顶部进度条 + form 提交锁按钮 */
+        document.addEventListener('DOMContentLoaded', function () {
+            if (!document.getElementById('htmx-progress')) {
+                const bar = document.createElement('div');
+                bar.id = 'htmx-progress';
+                document.body.appendChild(bar);
+            }
+        });
+        document.body.addEventListener('htmx:beforeRequest', () => {
+            document.getElementById('htmx-progress')?.classList.add('active');
+        });
+        document.body.addEventListener('htmx:afterRequest', () => {
+            document.getElementById('htmx-progress')?.classList.remove('active');
+        });
+        function reportHtmxFailure(ev) {
+            const st = ev.detail?.xhr?.status;
+            const msg = st ? ('请求失败：HTTP ' + st) : '请求失败：网络不可达或超时';
+            if (window.Alpine && Alpine.store) Alpine.store('toasts').push(msg, 'err');
+        }
+        document.body.addEventListener('htmx:responseError', reportHtmxFailure);
+        document.body.addEventListener('htmx:sendError', reportHtmxFailure);
+        document.body.addEventListener('htmx:timeout', reportHtmxFailure);
+        document.addEventListener('submit', function (ev) {
+            const form = ev.target;
+            if (form && form.matches && form.matches('form[data-loading]')) {
+                form.classList.add('is-submitting');
+                setTimeout(() => form.classList.remove('is-submitting'), 300000);
+            }
+        }, true);
+    </script>
+
+    <script>
+        /* 剪贴板复制：[data-copy] 或 [data-copy-profile-slug] 按钮 */
+        (function () {
+            async function doCopy(text, btn) {
+                let ok = false;
+                try {
+                    if (navigator.clipboard && window.isSecureContext) {
+                        await navigator.clipboard.writeText(text); ok = true;
+                    }
+                } catch (_) {}
+                if (!ok) {
+                    const ta = document.createElement('textarea');
+                    ta.value = text;
+                    ta.style.position = 'fixed'; ta.style.left = '-9999px';
+                    ta.setAttribute('readonly', '');
+                    document.body.appendChild(ta); ta.select();
+                    try { ok = document.execCommand('copy'); } catch (_) { ok = false; }
+                    document.body.removeChild(ta);
+                }
+                if (window.Alpine && Alpine.store) {
+                    Alpine.store('toasts').push(ok ? '已复制到剪贴板' : '复制失败，请手动复制', ok ? 'ok' : 'err');
+                }
+                if (btn && ok) {
+                    const original = btn.innerHTML;
+                    btn.innerHTML = '<i class="ti ti-check"></i>';
+                    setTimeout(() => { btn.innerHTML = original; }, 1200);
+                }
+            }
+            document.addEventListener('click', function (ev) {
+                const btn = ev.target.closest('[data-copy], [data-copy-profile-slug]');
+                if (!btn) return;
+                ev.preventDefault();
+                let text = btn.getAttribute('data-copy');
+                if (!text) {
+                    const slug = btn.getAttribute('data-copy-profile-slug');
+                    if (slug) {
+                        const metaEl = document.querySelector('meta[name="app-public-base-url"]');
+                        const configured = metaEl && metaEl.content ? metaEl.content.trim() : '';
+                        const base = configured || window.location.origin;
+                        text = base.replace(/\/+$/, '') + '/profile/' + slug;
+                    }
+                }
+                if (text) doCopy(text, btn);
+            });
+        })();
+    </script>
+</head>
+{{end}}

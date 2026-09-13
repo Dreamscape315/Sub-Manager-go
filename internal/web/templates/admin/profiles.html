@@ -1,0 +1,270 @@
+{{define "page:profiles"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+{{template "head" .}}
+<body class="min-h-screen bg-base-200 text-base-content">
+{{template "flash-meta" .}}
+{{template "nav" .}}
+
+<main class="container mx-auto max-w-7xl px-4 py-6 space-y-6">
+
+    <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold tracking-tight">Profile</h1>
+            <p class="text-sm text-base-content/60 mt-1">合并订阅添加</p>
+        </div>
+        <button type="button" class="btn btn-primary btn-sm gap-2"
+                onclick="document.getElementById('profile-drawer').showModal();">
+            <i class="ti ti-plus text-base"></i> 新增 Profile
+        </button>
+    </div>
+
+    {{if not .Profiles}}
+    <div class="card bg-base-100 shadow">
+        <div class="card-body items-center text-center py-16">
+            <i class="ti ti-target-off text-6xl text-base-content/30"></i>
+            <h2 class="card-title mt-4 text-base-content/60">还没有 Profile</h2>
+            <p class="text-sm text-base-content/50">点击上方"新增 Profile"添加第一个对外订阅配置。</p>
+        </div>
+    </div>
+    {{end}}
+
+    <section class="space-y-4">
+        {{$root := .}}
+        {{range .Profiles}}
+        <article class="card bg-base-100 shadow hover:shadow-md transition-shadow">
+            <div class="card-body p-5 gap-3">
+                <div class="flex flex-wrap items-center gap-3">
+                    <div class="flex items-center gap-2 grow min-w-0">
+                        {{template "profileDot" .}}
+                        <h3 class="text-base font-semibold truncate">{{.Slug}}</h3>
+                        <span class="badge badge-primary badge-sm">{{.TargetFormat}}</span>
+                        {{if .CachedContent}}<span class="badge badge-ghost badge-sm">{{bytesLabel (len .CachedContent) ""}}</span>{{end}}
+                        {{if not .Enabled}}<span class="badge badge-ghost badge-sm">停用</span>{{end}}
+                    </div>
+
+                    <div class="flex items-center gap-1 shrink-0 flex-wrap">
+                        <button type="button" class="btn btn-ghost btn-xs gap-1" data-copy-profile-slug="{{.Slug}}" title="复制对外订阅 URL">
+                            <i class="ti ti-copy"></i> 复制 URL
+                        </button>
+                        <form action="/admin/profiles/{{.ID}}/synthesize" method="post" class="m-0" data-loading>
+                            <button type="submit" class="btn btn-outline btn-xs gap-1"><i class="ti ti-refresh"></i> 立即合成</button>
+                        </form>
+                        <div class="dropdown dropdown-end">
+                            <label tabindex="0" class="btn btn-ghost btn-xs btn-square"><i class="ti ti-dots-vertical"></i></label>
+                            <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-100 rounded-box z-30 w-40 p-1 shadow-lg border border-base-300">
+                                <li>
+                                    <a href="#" hx-get="/admin/profiles/{{.ID}}/preview" hx-target="#preview-content" hx-swap="innerHTML"
+                                       onclick="document.getElementById('preview-dialog').showModal();">
+                                        <i class="ti ti-eye"></i> 预览节点
+                                    </a>
+                                </li>
+                                <li><a href="/admin/profiles?editingId={{.ID}}"><i class="ti ti-edit"></i> 编辑</a></li>
+                                <li>
+                                    <button type="button" class="text-error confirm-action"
+                                            form="delete-profile-{{.ID}}"
+                                            data-message="确认删除 Profile「{{.Slug}}」？此操作不可撤销。"
+                                            data-kind="danger" data-confirm-text="删除">
+                                        <i class="ti ti-trash"></i> 删除
+                                    </button>
+                                </li>
+                            </ul>
+                            <form id="delete-profile-{{.ID}}" action="/admin/profiles/{{.ID}}/delete" method="post" class="hidden" data-loading></form>
+                        </div>
+                        <span class="w-px h-6 bg-base-300 mx-1"></span>
+                        <form action="/admin/profiles/{{.ID}}/toggle" method="post" class="m-0" data-loading>
+                            <input type="checkbox" class="toggle toggle-primary toggle-sm" {{if .Enabled}}checked{{end}}
+                                   title="启用 / 停用" onchange="this.form.submit()">
+                        </form>
+                    </div>
+                </div>
+
+                <div class="font-mono text-xs text-base-content/60 truncate" title="/profile/{{.Slug}}">/profile/{{.Slug}}</div>
+
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-base-content/60">
+                    <span class="flex items-center gap-1">
+                        <i class="ti ti-clock"></i>
+                        {{template "localDatetime" dict "TS" .LastGeneratedAt "Fallback" "从未合成"}}
+                    </span>
+                    {{if .ExternalConfig}}
+                    <span class="flex items-center gap-1 truncate max-w-md" title="{{.ExternalConfig}}">
+                        <i class="ti ti-book-2"></i> 规则：<span class="font-mono truncate">{{.ExternalConfig}}</span>
+                    </span>
+                    {{else}}
+                    <span class="flex items-center gap-1">
+                        <i class="ti ti-book-2"></i> 规则：<span class="text-base-content/40">（无，用 subconverter 默认）</span>
+                    </span>
+                    {{end}}
+                </div>
+
+                <div class="text-xs flex items-start gap-2 flex-wrap">
+                    <span class="text-base-content/60 shrink-0 flex items-center gap-1 mt-0.5"><i class="ti ti-plane-departure"></i> 参与机场：</span>
+                    {{if not .SelectedAirportIDs}}
+                        <span class="badge badge-primary badge-outline badge-sm" title="未选 = 全部启用机场都参与">全部启用机场</span>
+                    {{else}}
+                        {{$sel := .SelectedAirportIDs}}
+                        {{if le (len $sel) 5}}
+                            {{range $root.AllAirports}}
+                                {{if containsID $sel .ID}}
+                                <span class="badge badge-sm {{if .Enabled}}badge-outline{{else}}badge-warning{{end}}"
+                                      title="{{if .Enabled}}{{.Name}}{{else}}{{.Name}} (已停用，不会参与){{end}}">{{.Name}}</span>
+                                {{end}}
+                            {{end}}
+                        {{else}}
+                        <details class="dropdown">
+                            <summary class="badge badge-primary badge-outline badge-sm cursor-pointer list-none">{{len $sel}} 个机场 · 展开</summary>
+                            <div class="dropdown-content z-20 mt-1 p-3 bg-base-100 rounded-box shadow-lg border border-base-300 max-w-md">
+                                <div class="flex flex-wrap gap-1">
+                                    {{range $root.AllAirports}}
+                                        {{if containsID $sel .ID}}
+                                        <span class="badge badge-sm {{if .Enabled}}badge-outline{{else}}badge-warning{{end}}"
+                                              title="{{if .Enabled}}{{.Name}}{{else}}{{.Name}} (已停用){{end}}">{{.Name}}</span>
+                                        {{end}}
+                                    {{end}}
+                                </div>
+                            </div>
+                        </details>
+                        {{end}}
+                    {{end}}
+                </div>
+            </div>
+        </article>
+        {{end}}
+    </section>
+</main>
+
+<!-- 节点预览 modal -->
+<dialog id="preview-dialog" class="modal">
+    <div class="modal-box max-w-3xl">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="font-bold text-lg flex items-center gap-2"><i class="ti ti-list-details"></i> 节点预览</h3>
+            <button type="button" class="btn btn-ghost btn-sm btn-square" onclick="document.getElementById('preview-dialog').close();"><i class="ti ti-x"></i></button>
+        </div>
+        <div id="preview-content" class="min-h-[5rem]">
+            <div class="text-center py-8 text-base-content/50">
+                <span class="loading loading-spinner loading-md"></span>
+                <p class="mt-2 text-sm">加载中...</p>
+            </div>
+        </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+<!-- 编辑 modal -->
+<dialog id="profile-drawer" class="modal">
+    <div class="modal-box max-w-2xl">
+        <script>
+            (function () {
+                const drawer = document.getElementById('profile-drawer');
+                if (new URLSearchParams(window.location.search).has('editingId')) { drawer.showModal(); }
+                drawer.addEventListener('close', function () {
+                    if (new URLSearchParams(window.location.search).has('editingId')) {
+                        window.location.href = '/admin/profiles';
+                    }
+                });
+            })();
+            function closeProfileDrawer() { document.getElementById('profile-drawer').close(); }
+        </script>
+        <form method="post" action="{{if .EditingID}}/admin/profiles/{{.EditingID}}{{else}}/admin/profiles{{end}}" data-loading>
+            <div class="flex items-center justify-between pb-3 mb-4 border-b border-base-200">
+                <h3 class="font-bold text-lg flex items-center gap-2">
+                    <i class="ti {{if .EditingID}}ti-edit{{else}}ti-plus{{end}}"></i>
+                    <span>{{if .EditingID}}编辑 Profile #{{.EditingID}}{{else}}新增 Profile{{end}}</span>
+                </h3>
+                <button type="button" class="btn btn-ghost btn-sm btn-square" onclick="closeProfileDrawer()"><i class="ti ti-x"></i></button>
+            </div>
+
+            <div class="space-y-4">
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <label class="form-control w-full">
+                        <div class="label"><span class="label-text font-medium">slug</span></div>
+                        <input type="text" name="slug" value="{{.Form.Slug}}"
+                               pattern="[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?"
+                               class="input input-bordered w-full font-mono text-sm{{if index .Errors "slug"}} input-error{{end}}"
+                               placeholder="clash-full" required>
+                        {{if index .Errors "slug"}}
+                            <div class="label"><span class="label-text-alt text-error">{{index .Errors "slug"}}</span></div>
+                        {{else}}
+                            <div class="label"><span class="label-text-alt text-base-content/50">访问：/profile/{slug}</span></div>
+                        {{end}}
+                    </label>
+
+                    <label class="form-control w-full">
+                        <div class="label"><span class="label-text font-medium">目标格式</span></div>
+                        <select name="targetFormat" class="select select-bordered w-full{{if index .Errors "targetFormat"}} select-error{{end}}">
+                            {{range standardTargetFormats}}
+                            <option value="{{.}}" {{if eq $.Form.TargetFormat .}}selected{{end}}>{{.}}</option>
+                            {{end}}
+                            {{if and .Form.TargetFormat (not (containsStr standardTargetFormats .Form.TargetFormat))}}
+                            <option value="{{.Form.TargetFormat}}" selected>{{.Form.TargetFormat}} (自定义)</option>
+                            {{end}}
+                        </select>
+                        {{if index .Errors "targetFormat"}}
+                            <div class="label"><span class="label-text-alt text-error">{{index .Errors "targetFormat"}}</span></div>
+                        {{else}}
+                            <div class="label"><span class="label-text-alt text-base-content/50">传给 subconverter 的 target 参数</span></div>
+                        {{end}}
+                    </label>
+                </div>
+
+                <label class="form-control w-full">
+                    <div class="label">
+                        <span class="label-text font-medium">external config</span>
+                        <span class="label-text-alt text-base-content/50">可空</span>
+                    </div>
+                    <input type="text" name="externalConfig" value="{{.Form.ExternalConfig}}"
+                           class="input input-bordered w-full font-mono text-xs{{if index .Errors "externalConfig"}} input-error{{end}}"
+                           placeholder="https://gist.githubusercontent.com/xxx/xxx/raw/xxx.ini">
+                    {{if index .Errors "externalConfig"}}
+                        <div class="label"><span class="label-text-alt text-error">{{index .Errors "externalConfig"}}</span></div>
+                    {{else}}
+                        <div class="label"><span class="label-text-alt text-base-content/50">subconverter 规则模板 URL。留空用默认。</span></div>
+                    {{end}}
+                </label>
+
+                <div class="form-control w-full">
+                    <div class="label">
+                        <span class="label-text font-medium">参与合成的机场</span>
+                        <span class="label-text-alt text-base-content/50">全不勾 = 用所有启用机场</span>
+                    </div>
+                    {{if not .AllAirports}}
+                    <div class="text-sm text-base-content/60 py-3 px-3 border border-dashed border-base-300 rounded-md">
+                        还没有机场——先去<a href="/admin/airports" class="link link-primary">机场管理</a>添加。
+                    </div>
+                    {{else}}
+                    <div class="border border-base-300 rounded-md max-h-64 overflow-y-auto divide-y divide-base-200">
+                        {{$sel := .Form.SelectedAirportIDs}}
+                        {{range .AllAirports}}
+                        <label class="flex items-center gap-3 p-2.5 hover:bg-base-200/50 cursor-pointer">
+                            <input type="checkbox" name="selectedAirportIds" value="{{.ID}}" {{if containsID $sel .ID}}checked{{end}}
+                                   class="checkbox checkbox-sm checkbox-primary">
+                            <span class="grow truncate">{{.Name}}</span>
+                            <span class="text-xs text-base-content/40 font-mono">#{{.ID}}</span>
+                            {{if not .Enabled}}<span class="badge badge-ghost badge-xs">停用</span>{{end}}
+                            {{if and .Enabled (not .CachedRawContent)}}<span class="badge badge-warning badge-xs">未拉取</span>{{end}}
+                        </label>
+                        {{end}}
+                    </div>
+                    {{end}}
+                </div>
+
+                <p class="text-xs text-base-content/50 flex items-center gap-1.5">
+                    <i class="ti ti-info-circle"></i> 启用 / 停用 请在卡片右侧的开关切换
+                </p>
+            </div>
+
+            <div class="modal-action mt-6 pt-4 border-t border-base-200">
+                <button type="button" class="btn btn-ghost" onclick="closeProfileDrawer()">取消</button>
+                <button type="submit" class="btn btn-primary gap-2">
+                    <i class="ti ti-check"></i><span>{{if .EditingID}}保存{{else}}新增{{end}}</span>
+                </button>
+            </div>
+        </form>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+{{template "flash" .}}
+</body>
+</html>
+{{end}}

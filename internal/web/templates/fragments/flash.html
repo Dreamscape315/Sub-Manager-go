@@ -1,0 +1,60 @@
+{{define "flash-meta"}}
+<div>
+    {{if .FlashOK}}<meta name="flash-ok" content="{{.FlashOK}}">{{end}}
+    {{if .FlashErr}}<meta name="flash-err" content="{{.FlashErr}}">{{end}}
+</div>
+{{end}}
+
+{{define "flash"}}
+<!-- toast 容器（Alpine 驱动，支持多条消息动态渲染） -->
+<div class="toast toast-top toast-end z-[100] p-4"
+     x-data="{}"
+     x-init="
+        const ok = document.querySelector('meta[name=flash-ok]');
+        const err = document.querySelector('meta[name=flash-err]');
+        if (ok && ok.content) $store.toasts.push(ok.content, 'ok');
+        if (err && err.content) $store.toasts.push(err.content, 'err');
+     ">
+    <template x-for="t in $store.toasts.items" :key="t.id">
+        <div class="alert shadow-lg w-auto max-w-md"
+             :class="{
+                 'alert-success': t.kind === 'ok',
+                 'alert-error':   t.kind === 'err',
+                 'alert-info':    t.kind === 'info'
+             }">
+            <i class="ti text-lg shrink-0"
+               :class="{
+                   'ti-check':           t.kind === 'ok',
+                   'ti-alert-triangle':  t.kind === 'err',
+                   'ti-info-circle':     t.kind === 'info'
+               }"></i>
+            <span x-text="t.text"
+                  class="flex-1 min-w-0 break-words whitespace-normal text-sm leading-snug"></span>
+            <button class="btn btn-ghost btn-xs btn-square shrink-0"
+                    @click="$store.toasts.items = $store.toasts.items.filter(x => x.id !== t.id)">
+                <i class="ti ti-x"></i>
+            </button>
+        </div>
+    </template>
+</div>
+
+<!-- 全局 confirm 对话框，由 window.showConfirm(message, opts, onOk) 操作 -->
+<div id="sm-confirm-modal" class="modal">
+    <div class="modal-box max-w-sm">
+        <h3 class="font-bold text-lg flex items-center gap-2">
+            <i data-role="icon" class="ti text-xl ti-help-circle"></i>
+            <span data-role="title">请确认</span>
+        </h3>
+        <p data-role="message" class="py-4 text-sm break-words whitespace-normal">…</p>
+        <div class="modal-action">
+            <button type="button" data-role="cancel-btn" class="btn btn-ghost">
+                <span data-role="cancel-text">取消</span>
+            </button>
+            <button type="button" data-role="confirm-btn" class="btn btn-primary">
+                <span data-role="confirm-text">确认</span>
+            </button>
+        </div>
+    </div>
+    <div data-role="backdrop" class="modal-backdrop"></div>
+</div>
+{{end}}

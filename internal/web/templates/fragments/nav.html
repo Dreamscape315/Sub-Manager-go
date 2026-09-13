@@ -1,0 +1,90 @@
+{{define "nav"}}
+<header class="sticky top-0 z-40 border-b border-base-300 bg-base-100/95 backdrop-blur"
+        hx-boost="true">
+    <div class="navbar container mx-auto max-w-7xl px-4 min-h-14 gap-2">
+        <!-- 左：brand -->
+        <div class="flex-1 min-w-0">
+            <a href="/admin" class="btn btn-ghost px-2 gap-2 text-base font-bold normal-case">
+                <i class="ti ti-broadcast text-primary text-xl"></i>
+                <span>Sub-Manager</span>
+            </a>
+        </div>
+
+        <!-- 中：桌面主导航 -->
+        <div class="hidden md:flex">
+            <ul class="menu menu-horizontal gap-1 px-1">
+                <li><a href="/admin" class="{{if eq .Nav "dashboard"}}active{{end}}">
+                    <i class="ti ti-dashboard"></i> 概览</a></li>
+                <li><a href="/admin/airports" class="{{if eq .Nav "airports"}}active{{end}}">
+                    <i class="ti ti-plane-departure"></i> 机场</a></li>
+                <li><a href="/admin/profiles" class="{{if eq .Nav "profiles"}}active{{end}}">
+                    <i class="ti ti-target-arrow"></i> Profile</a></li>
+                <li><a href="/admin/settings" class="{{if eq .Nav "settings"}}active{{end}}">
+                    <i class="ti ti-settings"></i> 设置</a></li>
+            </ul>
+        </div>
+
+        <!-- 右：操作 -->
+        <div class="flex items-center gap-1">
+            <!-- 主题切换 -->
+            <div class="dropdown dropdown-end"
+                 x-data="{ themes: window.APP_THEMES || { light: [], dark: [] } }"
+                 x-cloak>
+                <label tabindex="0" class="btn btn-ghost btn-square btn-sm"
+                       :title="'当前主题：' + $store.theme.current">
+                    <i class="ti text-lg ti-palette"></i>
+                </label>
+                <div tabindex="0"
+                     class="dropdown-content bg-base-100 rounded-box z-50 mt-2 w-64 p-2 shadow-lg border border-base-300 max-h-[70vh] overflow-y-auto">
+                    <div class="text-xs uppercase text-base-content/50 px-3 py-1.5 tracking-wider">浅色</div>
+                    <ul class="menu menu-sm p-0">
+                        <template x-for="t in themes.light" :key="t.name">
+                            <li>
+                                <a href="#"
+                                   @click.prevent="$store.theme.set(t.name)"
+                                   :class="$store.theme.current === t.name ? 'active font-semibold' : ''">
+                                    <span class="inline-block w-3 h-3 rounded-full border border-base-300"
+                                          :data-theme="t.name"
+                                          :style="'background: hsl(var(--p))'"></span>
+                                    <span x-text="t.label"></span>
+                                    <span class="ml-auto text-xs font-mono opacity-50" x-text="t.name"></span>
+                                </a>
+                            </li>
+                        </template>
+                    </ul>
+                    <div class="text-xs uppercase text-base-content/50 px-3 py-1.5 mt-1 tracking-wider">深色</div>
+                    <ul class="menu menu-sm p-0">
+                        <template x-for="t in themes.dark" :key="t.name">
+                            <li>
+                                <a href="#"
+                                   @click.prevent="$store.theme.set(t.name)"
+                                   :class="$store.theme.current === t.name ? 'active font-semibold' : ''">
+                                    <span class="inline-block w-3 h-3 rounded-full border border-base-300"
+                                          :data-theme="t.name"
+                                          :style="'background: hsl(var(--p))'"></span>
+                                    <span x-text="t.label"></span>
+                                    <span class="ml-auto text-xs font-mono opacity-50" x-text="t.name"></span>
+                                </a>
+                            </li>
+                        </template>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- 手机菜单 -->
+            <div class="dropdown dropdown-end md:hidden">
+                <label tabindex="0" class="btn btn-ghost btn-square btn-sm">
+                    <i class="ti ti-menu-2 text-lg"></i>
+                </label>
+                <ul tabindex="0"
+                    class="dropdown-content menu bg-base-100 rounded-box z-50 mt-2 w-56 p-2 shadow-lg border border-base-300">
+                    <li><a href="/admin"><i class="ti ti-dashboard"></i> 概览</a></li>
+                    <li><a href="/admin/airports"><i class="ti ti-plane-departure"></i> 机场</a></li>
+                    <li><a href="/admin/profiles"><i class="ti ti-target-arrow"></i> Profile</a></li>
+                    <li><a href="/admin/settings"><i class="ti ti-settings"></i> 设置</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</header>
+{{end}}

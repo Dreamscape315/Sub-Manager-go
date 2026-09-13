@@ -1,0 +1,217 @@
+{{define "page:airports"}}
+<!DOCTYPE html>
+<html lang="zh-CN">
+{{template "head" .}}
+<body class="min-h-screen bg-base-200 text-base-content">
+{{template "flash-meta" .}}
+{{template "nav" .}}
+
+<main class="container mx-auto max-w-7xl px-4 py-6 space-y-6">
+
+    <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold tracking-tight">机场</h1>
+            <p class="text-sm text-base-content/60 mt-1">此处增加原始订阅</p>
+        </div>
+        <button type="button" class="btn btn-primary btn-sm gap-2"
+                onclick="document.getElementById('airport-drawer').showModal();">
+            <i class="ti ti-plus text-base"></i> 新增机场
+        </button>
+    </div>
+
+    {{if not .Airports}}
+    <div class="card bg-base-100 shadow">
+        <div class="card-body items-center text-center py-16">
+            <i class="ti ti-plane-off text-6xl text-base-content/30"></i>
+            <h2 class="card-title mt-4 text-base-content/60">还没有机场</h2>
+            <p class="text-sm text-base-content/50">点击上方"新增机场"添加第一个订阅源。</p>
+        </div>
+    </div>
+    {{end}}
+
+    <section class="space-y-4">
+        {{$root := .}}
+        {{range .Airports}}
+        <article class="card bg-base-100 shadow hover:shadow-md transition-shadow">
+            <div class="card-body p-5 gap-3">
+                <div class="flex flex-wrap items-center gap-3">
+                    <div class="flex items-center gap-2 grow min-w-0">
+                        {{template "airportDot" .}}
+                        <h3 class="text-base font-semibold truncate">{{.Name}}</h3>
+                        {{if .IsManualSource}}<span class="badge badge-info badge-sm gap-1"><i class="ti ti-clipboard text-[10px]"></i>手动</span>{{end}}
+                        {{if not .Enabled}}<span class="badge badge-ghost badge-sm">停用</span>{{end}}
+                        {{if and .Enabled (not .IsManualSource) (isZeroTime .LastFetchedAt)}}<span class="badge badge-warning badge-sm">未拉取</span>{{end}}
+                    </div>
+
+                    <div class="flex items-center gap-1 shrink-0 flex-wrap">
+                        {{if not .IsManualSource}}
+                        <button type="button" class="btn btn-ghost btn-xs gap-1" data-copy="{{.SubURL}}" title="复制订阅 URL">
+                            <i class="ti ti-copy"></i> 复制
+                        </button>
+                        {{end}}
+                        <form action="/admin/airports/{{.ID}}/fetch" method="post" class="m-0" data-loading>
+                            <button type="submit" class="btn btn-outline btn-xs gap-1">
+                                <i class="ti ti-refresh"></i>
+                                <span>{{if .IsManualSource}}重新应用{{else}}立即拉取{{end}}</span>
+                            </button>
+                        </form>
+                        <div class="dropdown dropdown-end">
+                            <label tabindex="0" class="btn btn-ghost btn-xs btn-square"><i class="ti ti-dots-vertical"></i></label>
+                            <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-100 rounded-box z-30 w-40 p-1 shadow-lg border border-base-300">
+                                <li><a href="/admin/airports?editingId={{.ID}}"><i class="ti ti-edit"></i> 编辑</a></li>
+                                <li>
+                                    <button type="button" class="text-error confirm-action"
+                                            form="delete-airport-{{.ID}}"
+                                            data-message="确认删除机场「{{.Name}}」？此操作不可撤销。"
+                                            data-kind="danger" data-confirm-text="删除">
+                                        <i class="ti ti-trash"></i> 删除
+                                    </button>
+                                </li>
+                            </ul>
+                            <form id="delete-airport-{{.ID}}" action="/admin/airports/{{.ID}}/delete" method="post" class="hidden" data-loading></form>
+                        </div>
+                        <span class="w-px h-6 bg-base-300 mx-1"></span>
+                        <form action="/admin/airports/{{.ID}}/toggle" method="post" class="m-0" data-loading>
+                            <input type="checkbox" class="toggle toggle-primary toggle-sm" {{if .Enabled}}checked{{end}}
+                                   title="启用 / 停用" onchange="this.form.submit()">
+                        </form>
+                    </div>
+                </div>
+
+                {{if .IsManualSource}}
+                <div class="text-xs text-base-content/60 flex items-center gap-1.5">
+                    <i class="ti ti-clipboard"></i><span>手动粘贴</span>
+                    {{if .ManualContent}} · {{bytesLabel (len .ManualContent) ""}}{{end}}
+                </div>
+                {{else}}
+                <div class="font-mono text-xs text-base-content/60 truncate" title="{{.SubURL}}">{{.SubURL}}</div>
+                {{end}}
+
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-base-content/60">
+                    <span class="flex items-center gap-1">
+                        <i class="ti ti-database"></i>
+                        {{if .CachedRawContent}}{{bytesLabel (len .CachedRawContent) "缓存"}}{{else}}无缓存{{end}}
+                    </span>
+                    <span class="flex items-center gap-1">
+                        <i class="ti ti-clock"></i>
+                        {{template "localDatetime" dict "TS" .LastFetchedAt "Fallback" "从未拉取"}}
+                    </span>
+                    {{if .CachedUserinfo}}<span class="flex items-center gap-1" title="{{.CachedUserinfo}}"><i class="ti ti-chart-bar"></i> 有流量数据</span>{{end}}
+                </div>
+
+                {{$uses := index $root.UsedByMap .ID}}
+                <div class="text-xs">
+                    <span class="text-base-content/60"><i class="ti ti-target-arrow"></i> 被 <span class="font-semibold">{{len $uses}}</span> 个 Profile 使用：</span>
+                    {{if not $uses}}<span class="text-base-content/40">（无 · 不会参与任何合成）</span>{{end}}
+                    {{range $uses}}
+                    <a href="/admin/profiles?editingId={{.ID}}" class="badge badge-outline badge-sm ml-1 hover:badge-primary transition-colors">{{.Slug}}</a>
+                    {{end}}
+                </div>
+
+                {{if .LastFetchError}}
+                <div class="alert alert-error text-xs mt-1 py-2 min-h-0">
+                    <i class="ti ti-alert-circle text-base"></i>
+                    <span>上次失败：<span class="font-mono">{{.LastFetchError}}</span></span>
+                </div>
+                {{end}}
+            </div>
+        </article>
+        {{end}}
+    </section>
+</main>
+
+<!-- 新增/编辑 modal -->
+<dialog id="airport-drawer" class="modal">
+    <div class="modal-box max-w-2xl"
+         data-init-mode="{{if .Form.SourceType}}{{.Form.SourceType}}{{else}}URL{{end}}"
+         x-data="{ mode: $el.dataset.initMode || 'URL' }">
+        <script>
+            (function () {
+                const drawer = document.getElementById('airport-drawer');
+                if (new URLSearchParams(window.location.search).has('editingId')) { drawer.showModal(); }
+                drawer.addEventListener('close', function () {
+                    if (new URLSearchParams(window.location.search).has('editingId')) {
+                        window.location.href = '/admin/airports';
+                    }
+                });
+            })();
+            function closeAirportDrawer() { document.getElementById('airport-drawer').close(); }
+        </script>
+        <form method="post" action="{{if .EditingID}}/admin/airports/{{.EditingID}}{{else}}/admin/airports{{end}}" data-loading>
+            <div class="flex items-center justify-between pb-3 mb-4 border-b border-base-200">
+                <h3 class="font-bold text-lg flex items-center gap-2">
+                    <i class="ti {{if .EditingID}}ti-edit{{else}}ti-plus{{end}}"></i>
+                    <span>{{if .EditingID}}编辑机场 #{{.EditingID}}{{else}}新增机场{{end}}</span>
+                </h3>
+                <button type="button" class="btn btn-ghost btn-sm btn-square" onclick="closeAirportDrawer()"><i class="ti ti-x"></i></button>
+            </div>
+
+            <div class="space-y-4">
+                <label class="form-control w-full">
+                    <div class="label"><span class="label-text font-medium">名称</span></div>
+                    <input type="text" name="name" value="{{.Form.Name}}"
+                           class="input input-bordered w-full{{if index .Errors "name"}} input-error{{end}}"
+                           placeholder="例如：机场 A" required>
+                    {{if index .Errors "name"}}<div class="label"><span class="label-text-alt text-error">{{index .Errors "name"}}</span></div>{{end}}
+                </label>
+
+                <div>
+                    <div class="label pt-0"><span class="label-text font-medium">内容来源</span></div>
+                    <div role="tablist" class="tabs tabs-boxed">
+                        <a role="tab" class="tab flex-1 gap-2" :class="mode === 'URL' && 'tab-active'" @click.prevent="mode = 'URL'">
+                            <i class="ti ti-link"></i> URL 拉取
+                        </a>
+                        <a role="tab" class="tab flex-1 gap-2" :class="mode === 'MANUAL' && 'tab-active'" @click.prevent="mode = 'MANUAL'">
+                            <i class="ti ti-clipboard"></i> 手动粘贴
+                        </a>
+                    </div>
+                    <input type="hidden" name="sourceType" :value="mode">
+                </div>
+
+                <label class="form-control w-full" x-show="mode === 'URL'" x-cloak>
+                    <div class="label"><span class="label-text font-medium">订阅 URL</span></div>
+                    <input type="url" name="subUrl" value="{{.Form.SubURL}}"
+                           class="input input-bordered w-full font-mono text-sm{{if index .Errors "subUrl"}} input-error{{end}}"
+                           placeholder="https://airport.example.com/subscribe/xxxxx">
+                    {{if index .Errors "subUrl"}}
+                        <div class="label"><span class="label-text-alt text-error">{{index .Errors "subUrl"}}</span></div>
+                    {{else}}
+                        <div class="label"><span class="label-text-alt text-base-content/50">平台会定期拉取此 URL；支持 Base64 / Clash YAML / URI list</span></div>
+                    {{end}}
+                </label>
+
+                <label class="form-control w-full" x-show="mode === 'MANUAL'" x-cloak>
+                    <div class="label">
+                        <span class="label-text font-medium">订阅内容</span>
+                        <span class="label-text-alt text-base-content/50">Clash YAML / Base64 / URI 列表</span>
+                    </div>
+                    <textarea name="manualContent" rows="12"
+                              class="textarea textarea-bordered w-full font-mono text-xs leading-relaxed{{if index .Errors "manualContent"}} textarea-error{{end}}"
+                              placeholder="粘贴机场原始订阅内容，例如：&#10;&#10;proxies:&#10;  - name: 节点1&#10;    type: ss&#10;    server: ...&#10;    port: ...&#10;    ...">{{.Form.ManualContent}}</textarea>
+                    {{if index .Errors "manualContent"}}
+                        <div class="label"><span class="label-text-alt text-error">{{index .Errors "manualContent"}}</span></div>
+                    {{else}}
+                        <div class="label"><span class="label-text-alt text-base-content/50">保存后立即生效，不会去发起 HTTP 请求</span></div>
+                    {{end}}
+                </label>
+
+                <p class="text-xs text-base-content/50 flex items-center gap-1.5">
+                    <i class="ti ti-info-circle"></i> 启用 / 停用 请在卡片右侧的开关切换
+                </p>
+            </div>
+
+            <div class="modal-action mt-6 pt-4 border-t border-base-200">
+                <button type="button" class="btn btn-ghost" onclick="closeAirportDrawer()">取消</button>
+                <button type="submit" class="btn btn-primary gap-2">
+                    <i class="ti ti-check"></i><span>{{if .EditingID}}保存{{else}}新增{{end}}</span>
+                </button>
+            </div>
+        </form>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+</dialog>
+
+{{template "flash" .}}
+</body>
+</html>
+{{end}}

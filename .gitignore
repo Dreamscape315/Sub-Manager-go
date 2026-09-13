@@ -1,0 +1,7 @@
+data/
+*.db
+*.db-*
+.DS_Store
+tailwindcss
+tailwind-src.css
+.idea/

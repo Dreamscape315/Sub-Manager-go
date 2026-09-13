@@ -1,0 +1,32 @@
+{{/* airportDot: dot = domain.Airport. 4 states by enabled/lastFetchOk/lastFetchedAt. */}}
+{{define "airportDot"}}
+{{if not .Enabled}}
+    <span class="inline-block h-2.5 w-2.5 rounded-full bg-base-content/30 shrink-0" title="已停用"></span>
+{{else if .LastFetchOK}}
+    <span class="inline-block h-2.5 w-2.5 rounded-full bg-success shadow-[0_0_0_3px_rgba(34,197,94,0.2)] shrink-0" title="上次拉取成功"></span>
+{{else if not (isZeroTime .LastFetchedAt)}}
+    <span class="inline-block h-2.5 w-2.5 rounded-full bg-error shadow-[0_0_0_3px_rgba(239,68,68,0.2)] shrink-0" title="{{.LastFetchError}}"></span>
+{{else}}
+    <span class="inline-block h-2.5 w-2.5 rounded-full bg-warning shadow-[0_0_0_3px_rgba(234,179,8,0.2)] shrink-0" title="从未拉取"></span>
+{{end}}
+{{end}}
+
+{{/* profileDot: dot = domain.Profile. 3 states by enabled/hasCachedContent. */}}
+{{define "profileDot"}}
+{{if not .Enabled}}
+    <span class="inline-block h-2.5 w-2.5 rounded-full bg-base-content/30 shrink-0" title="已停用"></span>
+{{else if .HasCachedContent}}
+    <span class="inline-block h-2.5 w-2.5 rounded-full bg-success shadow-[0_0_0_3px_rgba(34,197,94,0.2)] shrink-0" title="已合成"></span>
+{{else}}
+    <span class="inline-block h-2.5 w-2.5 rounded-full bg-warning shadow-[0_0_0_3px_rgba(234,179,8,0.2)] shrink-0" title="尚未合成"></span>
+{{end}}
+{{end}}
+
+{{/* localDatetime: dot = time.Time; second arg via dict{TS, Fallback}. Client renders local tz via Alpine. */}}
+{{define "localDatetime"}}
+{{if isZeroTime .TS}}
+    <span>{{.Fallback}}</span>
+{{else}}
+    <span data-ts="{{tsAttr .TS}}" x-data x-init="$el.textContent = new Date($el.dataset.ts).toLocaleString()">…</span>
+{{end}}
+{{end}}
